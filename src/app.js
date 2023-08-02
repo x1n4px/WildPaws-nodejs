@@ -77,7 +77,8 @@ app.get('/', async (req, res) => {
         { method: 'GET', path: '/login', description: 'Inicio de sesion con token jwt, necesario: name, password' },
         { method: 'POST', path: '/registro', description: 'Registro de usuario, necesario: name, password' },
         { method: 'GET', path: '/ping', description: 'Devuelve hello world' },
-        { method: 'GET', path: '/create', description: 'Inserta un nombre predefinido en la base de datos' }
+        { method: 'GET', path: '/create', description: 'Inserta un nombre predefinido en la base de datos' },
+        { method: 'GET', path: '/saludo', description: 'Devuelve Saludo si tiene token jwt, necesario: token jwt válido' },
 
       ];
     
