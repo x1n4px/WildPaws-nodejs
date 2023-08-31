@@ -188,6 +188,27 @@ app.post('/login', async (req, res) => {
     }
 });
 
+app.post('/changeAddressFav', async (req, res) => {
+    try {
+        const {index, user_id} = req.body;
+         const ChangeQuery = 'UPDATE Addresses a set a.primary = 0 where a.id_user = ?';
+
+        const [AddressResult] = await pool.query(ChangeQuery, user_id);
+
+        const Change2Query = 'UPDATE Addresses a set a.primary = 1 where a.id = ? and a.id_user = ?';
+        const queryParams = [index, user_id];
+        const [Address2Result] = await pool.query(Change2Query, queryParams);
+
+        const resolverInfo = 'SELECT * from Addresses a where a.id_user  = ?';
+        const [resolverQuery] = await pool.query(resolverInfo, user_id); 
+
+         res.status(201).json(resolverQuery);
+
+    } catch (error) {
+        res.status(500).send('Error en la modificación de las direcciones');
+    }
+});
+
 app.get('/saludo', verifyToken, (req, res) => {
     res.send(`Hola, ${req.user.name}! Has sido autorizado con exito`);
 });
