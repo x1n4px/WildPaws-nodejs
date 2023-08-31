@@ -14,7 +14,7 @@ app.use(bodyParser.json());
 app.post('/registro', async (req, res) => {
     try {
         const { name, password } = req.body;
-         // Cifrar la contraseña
+        // Cifrar la contraseña
         bcrypt.genSalt(10, function (err, salt) {
             bcrypt.hash(password, salt, function (err, hashedPassword) {
                 const query = 'INSERT INTO users (name, hashedPassword) VALUES (?, ?)';
@@ -46,7 +46,7 @@ app.post('/crearProducto', async (req, res) => {
 app.get('/productos', async (req, res) => {
     try {
         const { animal, food_type } = req.query;
- 
+
         let query = 'SELECT * FROM products p WHERE p.animal = ? AND p.food_type = ?';
         const queryParams = [animal, food_type];
 
@@ -111,34 +111,34 @@ app.get('/producto/:id', async (req, res) => {
         `;
 
         const [result] = await pool.query(productQuery, [productId]);
-         if (result.length === 0) {
+        if (result.length === 0) {
             return res.status(404).json({ message: 'Producto no encontrado' });
         }
 
         const ingredientQuery = `select i.name , i.description , i.image , i.amount  from ingredients i, product_ingredients pi2 
         where pi2.product_id  = ? and pi2.ingredient_id = i.id ;`
         const [ingredientResult] = await pool.query(ingredientQuery, [productId]);
-         
+
         const otherProductQuery = `select p.weigth , p.reference , p.id from products p where p.name = ?; `;
         const [otherProductResult] = await pool.query(otherProductQuery, [result[0].name]);
 
         const productData = {
             ...result[0],
             ingredients: ingredientResult,
-            otherSize: {...otherProductResult},
+            otherSize: { ...otherProductResult },
             cantidad: 0
         }
         for (const key in productData.otherSize) {
             if (key !== 'check' && productData.otherSize.hasOwnProperty(key)) {
-                if(productData.otherSize[key].weigth === result[0].weigth){
+                if (productData.otherSize[key].weigth === result[0].weigth) {
                     productData.otherSize[key].check = true;
-                }else{
+                } else {
                     productData.otherSize[key].check = false;
                 }
-                
+
             }
         }
-         res.json(productData); // Envía la respuesta como JSON
+        res.json(productData); // Envía la respuesta como JSON
     } catch (error) {
         console.error(error);
         res.status(500).send('Error al obtener los datos del producto.');
@@ -147,14 +147,36 @@ app.get('/producto/:id', async (req, res) => {
 
 app.post('/login', async (req, res) => {
     try {
-        const { name, password } = req.body;
+        const { email, password } = req.body;
 
-        const result = await checkUser(name, password);
-        const userQuery = 'SELECT * FROM users WHERE name = ?';
-         if (result) {
-            const [userResult] = await pool.query(userQuery, [name]);
-            const token = generateToken(userResult[0].id, userResult[0].name)
-            return res.status(200).json(token);
+        const result = await checkUser(email, password);
+        const userQuery = 'SELECT * FROM users WHERE email = ?';
+        if (result) {
+            const [userResult] = await pool.query(userQuery, [email]);
+            const token = generateToken(userResult[0].id, userResult[0].email);
+
+            const AddressQuery = 'select * from Addresses a WHERE a.id_user = ?';
+            const [AddressResult] = await pool.query(AddressQuery, [userResult[0].id]);
+
+            const CardQuery = 'select * from CardDetails cd where cd.user_id = ?';
+            const [CardResult] = await pool.query(CardQuery, [userResult[0].id]);
+
+            const userData = {
+                token: token,
+                user: {
+                    id: userResult[0].id,
+                    email: userResult[0].email,
+                    name: userResult[0].Name,
+                    surname: userResult[0].Surname,
+                    birthday: userResult[0].birthdate,
+                    address: AddressResult,
+                    card: CardResult
+                }
+
+            }
+
+
+            return res.status(200).json(userData);
         } else {
             return res.status(501).json("Inicio de sesion invalido");
         }
@@ -171,10 +193,10 @@ app.get('/saludo', verifyToken, (req, res) => {
 });
 
 
-async function checkUser(name, password) {
+async function checkUser(email, password) {
     // Buscar el usuario en la base de datos por su nombre
-    const userQuery = 'SELECT * FROM users WHERE name = ?';
-    const [userResult] = await pool.query(userQuery, [name]);
+    const userQuery = 'SELECT * FROM users WHERE email = ?';
+    const [userResult] = await pool.query(userQuery, [email]);
 
 
     const match = await bcrypt.compare(password, userResult[0].hashedPassword);
@@ -193,8 +215,14 @@ app.get('/', async (req, res) => {
         { method: 'GET', path: '/login', description: 'Inicio de sesion con token jwt, necesario: name, password' },
         { method: 'POST', path: '/registro', description: 'Registro de usuario, necesario: name, password' },
         { method: 'GET', path: '/ping', description: 'Devuelve hello world' },
-        { method: 'GET', path: '/create', description: 'Inserta un nombre predefinido en la base de datos' },
-        { method: 'GET', path: '/saludo', description: 'Devuelve Saludo si tiene token jwt, necesario: token jwt válido' },
+        { method: 'POST', path: '/crearProducto', description: 'Crea un producto dado los siguientes campos: name, image, price, animal, weigth, food_type, animal_age, animal_size, description, check, Crude_protein, Crude_fat, Crude_fiber, Crude_ash, omega3, omega6, Composition, Aditives' },
+        { method: 'GET', path: '/producto/:id', description: 'Devuelve el producto dado su ID' },
+        { method: 'GET', path: '/productos/ingredientes/:id', description: 'Devuelve los ingredientes dado su ID' },
+        { method: 'GET', path: '/ingredientes', description: 'Devuelve todos los ingredientes' },
+        { method: 'GET', path: '/productosReferenciados', description: 'Devuelve el producto dado su referencia' }
+
+
+
 
     ];
 
