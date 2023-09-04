@@ -99,6 +99,60 @@ app.get('/productos/ingredientes/:id', async (req, res) => {
     }
 });
 
+
+app.get('/productos/similar', async (req, res) => {
+    try {
+        const { productId, datosPedidos, numero_pagina, datos_pagina } = req.body;
+         const query = `
+            select t.nombre from Tags t, Producto_Tag pt 
+            where pt.producto_id = ? and pt.tag_id = t.tag_id ;
+    `;
+
+        const [result] = await pool.query(query, [productId]);
+        const tagsArray = result;
+        const tagIds = tagsArray.map(tag => `'${tag.nombre}'`).join(', ');
+
+
+
+
+        const tagQuery = `
+        SELECT DISTINCT p.*
+        FROM products p
+        WHERE p.id IN (
+            SELECT pt.producto_id
+            FROM Producto_Tag pt
+            JOIN Tags t ON pt.tag_id = t.tag_id
+            WHERE t.nombre IN (${tagIds})
+        );
+        `;
+
+        const [tagResult] = await pool.query(tagQuery);
+
+
+        const salida = {
+            resultadosTotales: tagResult.length,
+            resultadosDevueltos: datosPedidos,
+            datos: tagResult
+        }
+        // Si tagResult.length es mayor que datosPedidos, selecciona aleatoriamente datosPedidos elementos
+        if (tagResult.length > datosPedidos) {
+            const resultadosAleatorios = [];
+
+            while (resultadosAleatorios.length < datosPedidos) {
+                const indiceAleatorio = Math.floor(Math.random() * tagResult.length);
+                resultadosAleatorios.push(tagResult.splice(indiceAleatorio, 1)[0]);
+            }
+
+            salida.datos = resultadosAleatorios;
+        }
+
+         console.log(salida);
+        res.json(salida); // Envía la respuesta como JSON
+    } catch {
+        res.status(500).send('Error al obtener los ingredientes del producto.');
+    }
+});
+
 app.get('/producto/:id', async (req, res) => {
     try {
 
@@ -190,8 +244,8 @@ app.post('/login', async (req, res) => {
 
 app.post('/changeAddressFav', async (req, res) => {
     try {
-        const {index, user_id} = req.body;
-         const ChangeQuery = 'UPDATE Addresses a set a.primary = 0 where a.id_user = ?';
+        const { index, user_id } = req.body;
+        const ChangeQuery = 'UPDATE Addresses a set a.primary = 0 where a.id_user = ?';
 
         const [AddressResult] = await pool.query(ChangeQuery, user_id);
 
@@ -200,9 +254,9 @@ app.post('/changeAddressFav', async (req, res) => {
         const [Address2Result] = await pool.query(Change2Query, queryParams);
 
         const resolverInfo = 'SELECT * from Addresses a where a.id_user  = ?';
-        const [resolverQuery] = await pool.query(resolverInfo, user_id); 
+        const [resolverQuery] = await pool.query(resolverInfo, user_id);
 
-         res.status(201).json(resolverQuery);
+        res.status(201).json(resolverQuery);
 
     } catch (error) {
         res.status(500).send('Error en la modificación de las direcciones');
