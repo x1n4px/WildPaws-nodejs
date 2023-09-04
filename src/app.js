@@ -100,41 +100,42 @@ app.get('/productos/ingredientes/:id', async (req, res) => {
 });
 
 
-app.get('/productos/similar', async (req, res) => {
+app.post('/productos/similar', async (req, res) => {
     try {
         const { productId, datosPedidos, numero_pagina, datos_pagina } = req.body;
-         const query = `
-            select t.nombre from Tags t, Producto_Tag pt 
-            where pt.producto_id = ? and pt.tag_id = t.tag_id ;
-    `;
 
-        const [result] = await pool.query(query, [productId]);
-        const tagsArray = result;
-        const tagIds = tagsArray.map(tag => `'${tag.nombre}'`).join(', ');
-
-
-
-
-        const tagQuery = `
-        SELECT DISTINCT p.*
-        FROM products p
-        WHERE p.id IN (
-            SELECT pt.producto_id
-            FROM Producto_Tag pt
-            JOIN Tags t ON pt.tag_id = t.tag_id
-            WHERE t.nombre IN (${tagIds})
-        );
+        const query = `
+            SELECT t.nombre
+            FROM Tags t
+            JOIN Producto_Tag pt ON pt.tag_id = t.tag_id
+            WHERE pt.producto_id = ?;
         `;
 
-        const [tagResult] = await pool.query(tagQuery);
+        const [tagsResult] = await pool.query(query, [productId]);
 
+        const animal = tagsResult.some(tag => tag.nombre === 'DOG') ? 'Perro' : 'Gato';
 
-        const salida = {
-            resultadosTotales: tagResult.length,
-            resultadosDevueltos: datosPedidos,
-            datos: tagResult
-        }
-        // Si tagResult.length es mayor que datosPedidos, selecciona aleatoriamente datosPedidos elementos
+        const tagQuery = `
+            SELECT DISTINCT p.*
+            FROM products p
+            WHERE p.id IN (
+                SELECT pt.producto_id
+                FROM Producto_Tag pt
+                JOIN Tags t ON pt.tag_id = t.tag_id
+                WHERE t.nombre IN (${tagsResult.map(tag => `'${tag.nombre}'`).join(', ')})
+            ) AND p.animal = ?;
+        `;
+
+        const [tagResult] = await pool.query(tagQuery, animal);
+
+        let datosReducidos = tagResult.map(producto => ({
+            name: producto.name,
+            price: producto.price,
+            image: producto.image,
+            reference: producto.reference,
+            id: producto.id
+        }));
+
         if (tagResult.length > datosPedidos) {
             const resultadosAleatorios = [];
 
@@ -143,15 +144,21 @@ app.get('/productos/similar', async (req, res) => {
                 resultadosAleatorios.push(tagResult.splice(indiceAleatorio, 1)[0]);
             }
 
-            salida.datos = resultadosAleatorios;
+            datosReducidos = resultadosAleatorios;
         }
 
-         console.log(salida);
-        res.json(salida); // Envía la respuesta como JSON
+        const salida = {
+            resultadosTotales: datosReducidos.length,
+            resultadosDevueltos: datosPedidos,
+            datos: datosReducidos
+        };
+
+        res.json(salida);
     } catch {
         res.status(500).send('Error al obtener los ingredientes del producto.');
     }
 });
+
 
 app.get('/producto/:id', async (req, res) => {
     try {
