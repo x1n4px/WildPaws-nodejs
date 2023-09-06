@@ -13,12 +13,11 @@ app.use(bodyParser.json());
 
 app.post('/registro', async (req, res) => {
     try {
-        const { name, password } = req.body;
-        // Cifrar la contraseña
-        bcrypt.genSalt(10, function (err, salt) {
+        const { email, password, name, surname, birthday } = req.body;
+         bcrypt.genSalt(10, function (err, salt) {
             bcrypt.hash(password, salt, function (err, hashedPassword) {
-                const query = 'INSERT INTO users (name, hashedPassword) VALUES (?, ?)';
-                const values = [name, hashedPassword];
+                const query = 'INSERT INTO users (email, hashedPassword, Name, Surname, birthday) VALUES (?,?,?,?,?)';
+                const values = [email, hashedPassword, name, surname, birthday];
                 const result = pool.query(query, values);
                 res.status(201).json(result);
             });
@@ -45,18 +44,34 @@ app.post('/crearProducto', async (req, res) => {
 
 app.get('/productos', async (req, res) => {
     try {
-        const { animal, food_type } = req.query;
+        const { animal, food_type, pagina, resultadosXPagina } = req.query;
 
-        let query = 'SELECT * FROM products p WHERE p.animal = ? AND p.food_type = ?';
-        const queryParams = [animal, food_type];
+        // Convertir las cadenas en números enteros
+        const startIndex = parseInt((pagina - 1) * resultadosXPagina);
+        const limit = parseInt(resultadosXPagina);
+
+        // Consulta SQL con limitaciones
+        let query = 'SELECT * FROM products p WHERE p.animal = ? AND p.food_type = ? LIMIT ?, ?';
+        const queryParams = [animal, food_type, startIndex, limit];
 
         const [result] = await pool.query(query, queryParams);
-        res.json(result);
+
+        let lengthQuery = 'select count(*) longitud from products p WHERE p.animal = ? AND p.food_type = ?';
+        const lengthParams = [animal, food_type];
+        const [lengthResult] = await pool.query(lengthQuery, lengthParams);
+         const resultado = {
+            longitud_Total: lengthResult[0].longitud,
+            data: result
+        }
+
+        res.json(resultado);
     } catch (error) {
         console.error(error);
         res.status(500).send('Error al devolver el producto');
     }
 });
+
+
 app.get('/productosReferenciados', async (req, res) => {
     try {
         const { reference } = req.query;
@@ -65,6 +80,23 @@ app.get('/productosReferenciados', async (req, res) => {
         const queryParams = [reference];
 
         const [result] = await pool.query(query, queryParams);
+        res.json(result);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error al devolver el producto');
+    }
+});
+
+app.get('/busqueda', async (req, res) => {
+    try {
+        const { busqueda } = req.query;
+         let query = 'SELECT * FROM products p WHERE upper(p.name) LIKE upper(?)';
+         const likePattern = `%${busqueda}%`; 
+        const queryParams = [likePattern];
+        console.log(query);
+        const [result] = await pool.query(query, queryParams);
+        console.log(result);
+
         res.json(result);
     } catch (error) {
         console.error(error);
@@ -103,7 +135,7 @@ app.get('/productos/ingredientes/:id', async (req, res) => {
 app.post('/productos/similar', async (req, res) => {
     try {
         const { productId, datosPedidos, numero_pagina, datos_pagina } = req.body;
-
+        console.log(productId, datosPedidos, numero_pagina, datos_pagina);
         const query = `
             SELECT t.nombre
             FROM Tags t
@@ -164,22 +196,22 @@ app.get('/producto/:id', async (req, res) => {
     try {
 
         const productId = req.params.id; // Obtiene el ID del producto de los parámetros de la URL
-
-        const productQuery = `
+         const productQuery = `
             SELECT p.*
             FROM products p
             WHERE p.id = ?;
         `;
 
         const [result] = await pool.query(productQuery, [productId]);
+       
         if (result.length === 0) {
             return res.status(404).json({ message: 'Producto no encontrado' });
         }
 
-        const ingredientQuery = `select i.name , i.description , i.image , i.amount  from ingredients i, product_ingredients pi2 
+        const ingredientQuery = `select i.name , i.description , i.image  from ingredients i, product_ingredients pi2 
         where pi2.product_id  = ? and pi2.ingredient_id = i.id ;`
         const [ingredientResult] = await pool.query(ingredientQuery, [productId]);
-
+        console.log(ingredientResult);
         const otherProductQuery = `select p.weigth , p.reference , p.id from products p where p.name = ?; `;
         const [otherProductResult] = await pool.query(otherProductQuery, [result[0].name]);
 
@@ -296,8 +328,7 @@ app.get('/', async (req, res) => {
     const endpoints = [
         { method: 'GET', path: '/login', description: 'Inicio de sesion con token jwt, necesario: name, password' },
         { method: 'POST', path: '/registro', description: 'Registro de usuario, necesario: name, password' },
-        { method: 'GET', path: '/ping', description: 'Devuelve hello world' },
-        { method: 'POST', path: '/crearProducto', description: 'Crea un producto dado los siguientes campos: name, image, price, animal, weigth, food_type, animal_age, animal_size, description, check, Crude_protein, Crude_fat, Crude_fiber, Crude_ash, omega3, omega6, Composition, Aditives' },
+         { method: 'POST', path: '/crearProducto', description: 'Crea un producto dado los siguientes campos: name, image, price, animal, weigth, food_type, animal_age, animal_size, description, check, Crude_protein, Crude_fat, Crude_fiber, Crude_ash, omega3, omega6, Composition, Aditives' },
         { method: 'GET', path: '/producto/:id', description: 'Devuelve el producto dado su ID' },
         { method: 'GET', path: '/productos/ingredientes/:id', description: 'Devuelve los ingredientes dado su ID' },
         { method: 'GET', path: '/ingredientes', description: 'Devuelve todos los ingredientes' },
@@ -316,15 +347,8 @@ app.get('/', async (req, res) => {
     res.send(message);
 })
 
-app.get('/ping', async (req, res) => {
-    const [result] = await pool.query(`SELECT "hello world" as RESULT`);
-    res.json(result[0]);
-})
-
-app.get('/create', async (req, res) => {
-    const result = await pool.query(`INSERT INTO users(name) VALUES ("John")`);
-    res.json(result);
-})
+ 
+ 
 app.listen(PORT)
 console.log('Server on port ', PORT)
 
