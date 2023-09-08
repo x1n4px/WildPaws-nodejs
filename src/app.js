@@ -93,9 +93,9 @@ app.get('/busqueda', async (req, res) => {
          let query = 'SELECT * FROM products p WHERE upper(p.name) LIKE upper(?)';
          const likePattern = `%${busqueda}%`; 
         const queryParams = [likePattern];
-        console.log(query);
+         
         const [result] = await pool.query(query, queryParams);
-        console.log(result);
+         
 
         res.json(result);
     } catch (error) {
