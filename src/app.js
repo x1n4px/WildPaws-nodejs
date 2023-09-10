@@ -324,6 +324,21 @@ async function checkUser(email, password) {
     //...
 }
 
+
+app.get("/start", async (req, res) => {
+    const userQuery = `CREATE TABLE TuTabla (
+        id VARCHAR(255),
+        email VARCHAR(255),
+        hashedPassword VARCHAR(255),
+        name VARCHAR(255),
+        surname VARCHAR(255),
+        birthday VARCHAR(255)
+    );
+    `;
+    const [userResult] = await pool.query(userQuery);
+})
+
+
 app.get('/', async (req, res) => {
     const endpoints = [
         { method: 'GET', path: '/login', description: 'Inicio de sesion con token jwt, necesario: name, password' },
