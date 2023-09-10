@@ -347,8 +347,8 @@ app.get('/', async (req, res) => {
         { method: 'GET', path: '/producto/:id', description: 'Devuelve el producto dado su ID' },
         { method: 'GET', path: '/productos/ingredientes/:id', description: 'Devuelve los ingredientes dado su ID' },
         { method: 'GET', path: '/ingredientes', description: 'Devuelve todos los ingredientes' },
-        { method: 'GET', path: '/productosReferenciados', description: 'Devuelve el producto dado su referencia' }
-
+        { method: 'GET', path: '/productosReferenciados', description: 'Devuelve el producto dado su referencia' },
+        { method: 'GET', path: '/start', description: 'Crea la tabla usuario'}
 
 
 
