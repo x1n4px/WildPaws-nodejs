@@ -131,6 +131,21 @@ app.get('/productos/ingredientes/:id', async (req, res) => {
     }
 });
 
+app.get('/productos/todos', async (req, res) => {
+    try {
+         
+        const query = `
+        SELECT *
+        FROM products p;
+    `;
+
+        const [result] = await pool.query(query);
+
+        res.json(result); // Envía la respuesta como JSON
+    } catch {
+        res.status(500).send('Error al obtener los ingredientes del producto.');
+    }
+});
 
 app.post('/productos/similar', async (req, res) => {
     try {
